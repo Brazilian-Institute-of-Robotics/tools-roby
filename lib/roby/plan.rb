@@ -33,11 +33,21 @@ module Roby
         # The ExecutionEngine object which handles this plan. The role of this
         # object is to provide the event propagation, error propagation and
         # garbage collection mechanisms for the execution.
-        attr_accessor :engine
+        attr_accessor :execution_engine
+
+        # The ConnectionSpace object which handles this plan. The role of this
+        # object is to sharing with other Roby plan managers
+        attr_accessor :connection_space
+
+        # @deprecated use {#execution_engine} instead
+        def engine; execution_engine end
+        # @deprecated use {#execution_engine=} instead
+        def engine=(engine); self.execution_engine = engine end
+
         # The DecisionControl object which is associated with this plan. This
         # object's role is to handle the conflicts that can occur during event
         # propagation.
-        def control; engine.control end
+        def control; execution_engine.control end
 
 	# The task index for this plan. This is a TaskIndex object which allows
         # efficient resolving of queries.
@@ -108,9 +118,6 @@ module Roby
 
         # The set of relations available for this plan
         attr_reader :relations
-        # The propagation engine for this object. It is either nil (if no
-        # propagation engine is available) or self.
-        attr_reader :propagation_engine
         # The set of PlanService instances that are defined on this plan
         attr_reader :plan_services
         # The list of fault response tables that are currently globally active
@@ -242,8 +249,8 @@ module Roby
         #
         # See ExecutionEngine#execute
         def execute(&block)
-            if engine
-                engine.execute(&block)
+            if execution_engine
+                execution_engine.execute(&block)
             else
                 yield
             end
@@ -847,8 +854,8 @@ module Roby
                 discovered_tasks(tasks)
             end
 
-            if engine
-                engine.event_ordering.clear
+            if execution_engine
+                execution_engine.event_ordering.clear
             end
 
             # Issue added_task_relation hooks for the relations between the new
@@ -881,8 +888,8 @@ module Roby
                 discovered_events(events)
             end
 
-            if engine
-                engine.event_ordering.clear
+            if execution_engine
+                execution_engine.event_ordering.clear
             end
 
 	    super if defined? super
@@ -921,8 +928,8 @@ module Roby
         #   the new relation has been created
         # @return [void]
         def added_event_relation(parent, child, relations)
-            if engine && relations.include?(Roby::EventStructure::Precedence)
-                engine.event_ordering.clear
+            if execution_engine && relations.include?(Roby::EventStructure::Precedence)
+                execution_engine.event_ordering.clear
             end
             super if defined? super
         end
@@ -936,8 +943,8 @@ module Roby
         #   the relation has been removed
         # @return [void]
         def removed_event_relation(parent, child, relations)
-            if engine && relations.include?(Roby::EventStructure::Precedence)
-                engine.event_ordering.clear
+            if execution_engine && relations.include?(Roby::EventStructure::Precedence)
+                execution_engine.event_ordering.clear
             end
             super if defined? super
         end
@@ -1306,8 +1313,8 @@ module Roby
 
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
-            if engine && executable?
-                engine.finalized_event(event)
+            if execution_engine && executable?
+                execution_engine.finalized_event(event)
             end
             finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
             super if defined? super 
@@ -1344,7 +1351,7 @@ module Roby
         # See #recreate for details about the new task.
 	def respawn(task)
             new = recreate(task)
-            engine.once { new.start!(nil) }
+            execution_engine.once { new.start!(nil) }
 	    new
 	end
 
@@ -1414,8 +1421,8 @@ module Roby
 		begin
 		    new_exceptions = prc.call(self)
 		rescue Exception => e
-                    if engine
-                        engine.add_framework_error(e, 'structure checking')
+                    if execution_engine
+                        execution_engine.add_framework_error(e, 'structure checking')
                     else
                         raise
                     end
