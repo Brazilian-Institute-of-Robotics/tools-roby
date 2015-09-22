@@ -18,7 +18,7 @@ end
 
 script = Roby::App::Scripts::InterfaceScript.new
 error = Roby.display_exception do
-    script.run do |interface|
+    script.run(*ARGV) do |interface|
         Robot.info "connected"
         interface.restart
         begin

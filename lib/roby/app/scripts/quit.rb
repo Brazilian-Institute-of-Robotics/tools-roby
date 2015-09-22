@@ -15,7 +15,7 @@ def display_notifications(interface)
     end
 end
 
-Roby::App::Scripts::InterfaceScript.run do |interface|
+Roby::App::Scripts::InterfaceScript.run(*ARGV) do |interface|
     Robot.info "connected"
     interface.quit
     begin
